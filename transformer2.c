@@ -82,7 +82,7 @@ void process_line(char *line, struct Agent agents[], int *num_agents) {
     setlocale(LC_NUMERIC, "");
     if (average_gain_loss > 0) {
         snprintf(gain_str, sizeof(gain_str), "+%'.2f", average_gain_loss);
-    } else if (gain < 0) {
+    } else if (average_gain_loss < 0) {
         snprintf(gain_str, sizeof(gain_str), "%'.2f", average_gain_loss);  
     } else {  
         snprintf(gain_str, sizeof(gain_str), "%'.2f", average_gain_loss);  
