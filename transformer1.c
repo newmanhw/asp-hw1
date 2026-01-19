@@ -51,11 +51,21 @@ void process_line(char *line) {
     char out[256];
     int len;
 
+    char gain_str[32];
+
+    if (gain > 0) {
+        snprintf(gain_str, sizeof(gain_str), "+%'.2f", gain);
+    } else if (gain < 0) {
+        snprintf(gain_str, sizeof(gain_str), "%'.2f", gain);  // negative already has `-`
+    } else {  // gain == 0
+        snprintf(gain_str, sizeof(gain_str), "%'.2f", gain);  // just 0.00
+    }
+
     setlocale(LC_NUMERIC, "");
     // write to stdout 
     len = snprintf(out, sizeof(out),
-        "%s, %s, %s, %s, %'.2f, %'+.2f\n",
-        agentName, agentID, transID, stateID, sale, gain
+        "%s, %s, %s, %s, %'.2f, %s\n",
+        agentName, agentID, transID, stateID, sale, gain_str
     );
     write(1, out, len);
 
