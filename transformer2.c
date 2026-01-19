@@ -3,9 +3,17 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <locale.h>
+#include <string.h>
 
 #define BUFFER_SIZE 1024
 #define LINE_SIZE 512
+
+struct Agent {
+    char name[11];
+    char id[6];      
+    double total_gain;
+    int houses_sold;
+};
 
 void split_line(char *line, char *fields[]) {
     int cur_field = 0;
@@ -30,8 +38,8 @@ void removeCharacter(char* str, char charToRemove) {
     *dst = '\0'; // Null-terminate the new string
 }
 
-void process_line(char *line) {
-    char *fields[7]; 
+void process_line(char *line, struct Agent agents[], int *num_agents) {
+    char *fields[6]; 
     split_line(line, fields);
 
     char *agentName = fields[0];
@@ -39,42 +47,62 @@ void process_line(char *line) {
     char *transID   = fields[2];
     char *stateID   = fields[3];
     char *salePrice = fields[4];
-    char *origPrice = fields[5];
-    char *custRate  = fields[6];
+    char *gain      = fields[5];
     
-    // Remove commas for calculation purposes.
-    removeCharacter(salePrice, ',');
-    removeCharacter(origPrice, ',');
+    
+    removeCharacter(gain, ',');
+    double gain_formatted = strtod(gain, NULL);
 
-    double gain = strtod(salePrice, NULL) - strtod(origPrice, NULL);
-    double sale = strtod(salePrice, NULL);
-    char out[256];
-    int len;
-
-    // To deal with weird formatting of numbers
-    char gain_str[32];
-    setlocale(LC_NUMERIC, ""); // automatically converts numbers into standard format with commas
-    if (gain > 0) {
-        snprintf(gain_str, sizeof(gain_str), "+%'.2f", gain);
-    } else if (gain < 0) {
-        snprintf(gain_str, sizeof(gain_str), "%'.2f", gain);  // negative already has `-`
-    } else {  // gain == 0
-        snprintf(gain_str, sizeof(gain_str), "%'.2f", gain);  // just 0.00
+    int itr;
+    for (itr = 0; itr < *num_agents; itr++) {
+        if (strcmp(agents[itr].id, agentID) == 0) break;
     }
 
+    if (itr < *num_agents) {
+        // existing agent
+        agents[itr].total_gain += gain_formatted; 
+        agents[itr].houses_sold++;
+    } else {
+        // new agent
+        if (*num_agents >= 1000) {
+            fprintf(stderr, "Too many agents!\n");
+            exit(1);
+        }
+        strcpy(agents[*num_agents].name, agentName);
+        strcpy(agents[*num_agents].id, agentID);
+        agents[*num_agents].total_gain = gain_formatted;
+        agents[*num_agents].houses_sold = 1;
+        (*num_agents)++;
+    }
+
+    double average_gain_loss = gain_formatted;
+    //double average_gain_loss = agents[itr].total_gain / agents[itr].houses_sold;
+    // To deal with weird formatting of numbers
+    char gain_str[32];
+    setlocale(LC_NUMERIC, "");
+    if (average_gain_loss > 0) {
+        snprintf(gain_str, sizeof(gain_str), "+%'.2f", average_gain_loss);
+    } else if (gain < 0) {
+        snprintf(gain_str, sizeof(gain_str), "%'.2f", average_gain_loss);  
+    } else {  
+        snprintf(gain_str, sizeof(gain_str), "%'.2f", average_gain_loss);  
+    }
+
+    // stdout/err handling
+    char out[256];
+    int len;
     
     // write to stdout 
     len = snprintf(out, sizeof(out),
-        "%s, %s, %s, %s, %'.2f, %s\n",
-        agentName, agentID, transID, stateID, sale, gain_str
+        "%s, %s, %s\n",
+        agentName, agentID, gain_str
     );
     write(1, out, len);
 
     // write to stderr
-    double rate = strtod(custRate, NULL);
     len = snprintf(out, sizeof(out),
-        "%s, %s, %.1f\n",
-        agentID, stateID, rate
+        "%s, %s\n",
+        stateID, gain_str
     );
     write(2, out, len);
 }
@@ -88,12 +116,16 @@ int main() {
     int line_pos = 0;
     ssize_t bytes_read;
 
+    // Agent array information
+    struct Agent agents[10]; // shouldn't be too many agents
+    int num_agents = 0;
+
     // Split stdin by line
     while ((bytes_read = read(0, inbuf, BUFFER_SIZE)) > 0) {
         for (ssize_t i = 0; i < bytes_read; i++) {
             if (inbuf[i] == '\n') {
                 line[line_pos] = '\0';
-                process_line(line);
+                process_line(line, agents, &num_agents);
                 line_pos = 0;
             } else {
                 line[line_pos++] = inbuf[i];
