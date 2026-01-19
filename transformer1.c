@@ -42,7 +42,7 @@ void process_line(char *line) {
     char *origPrice = fields[5];
     char *custRate  = fields[6];
     
-    
+    // Remove commas for calculation purposes.
     removeCharacter(salePrice, ',');
     removeCharacter(origPrice, ',');
 
@@ -51,8 +51,8 @@ void process_line(char *line) {
     char out[256];
     int len;
 
+    // To deal with weird formatting of numbers
     char gain_str[32];
-
     if (gain > 0) {
         snprintf(gain_str, sizeof(gain_str), "+%'.2f", gain);
     } else if (gain < 0) {
@@ -61,7 +61,7 @@ void process_line(char *line) {
         snprintf(gain_str, sizeof(gain_str), "%'.2f", gain);  // just 0.00
     }
 
-    setlocale(LC_NUMERIC, "");
+    setlocale(LC_NUMERIC, ""); // automatically converts numbers into standard format with commas
     // write to stdout 
     len = snprintf(out, sizeof(out),
         "%s, %s, %s, %s, %'.2f, %s\n",
