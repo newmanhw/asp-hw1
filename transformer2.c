@@ -75,8 +75,8 @@ void process_line(char *line, struct Agent agents[], int *num_agents) {
         (*num_agents)++;
     }
 
-    double average_gain_loss = gain_formatted;
-    //double average_gain_loss = agents[itr].total_gain / agents[itr].houses_sold;
+    //double average_gain_loss = gain_formatted;
+    double average_gain_loss = agents[itr].total_gain / agents[itr].houses_sold;
     // To deal with weird formatting of numbers
     char gain_str[32];
     setlocale(LC_NUMERIC, "");
