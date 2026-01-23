@@ -104,12 +104,12 @@ void process_line(char *line, struct Agent agents[], int *num_agents, struct Sta
     }
 }
 
-// for sorting outputs:
-int compare_agents_last_seen(const void *a, const void *b) {
-    const struct Agent *aa = a;
-    const struct Agent *bb = b;
-    return aa->last_seen - bb->last_seen;
-}
+// // for sorting outputs:
+// int compare_agents_last_seen(const void *a, const void *b) {
+//     const struct Agent *aa = a;
+//     const struct Agent *bb = b;
+//     return aa->last_seen - bb->last_seen;
+// }
 
 int main() {
     // File descriptor 0: stdin
@@ -142,7 +142,7 @@ int main() {
         }
     }
 
-    qsort(agents, num_agents, sizeof(struct Agent), compare_agents_last_seen);
+    // qsort(agents, num_agents, sizeof(struct Agent), compare_agents_last_seen);
     //qsort(states, num_states, sizeof(struct State), compare_agents_last_seen);
 
     // stdout
