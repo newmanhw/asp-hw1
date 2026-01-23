@@ -38,8 +38,8 @@ void process_line(char *line) {
     char *agentID   = fields[1];
     char *transID   = fields[2];
     char *stateID   = fields[3];
-    char *salePrice = fields[4];
-    char *origPrice = fields[5];
+    char *origPrice = fields[4];
+    char *salePrice = fields[5];
     char *custRate  = fields[6];
     
     // Remove commas for calculation purposes.

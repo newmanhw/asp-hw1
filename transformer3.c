@@ -4,15 +4,28 @@
 #include <fcntl.h>
 #include <locale.h>
 #include <string.h>
+#include <math.h>
 
 #define BUFFER_SIZE 1024
 #define LINE_SIZE 512
 
 struct Agent {
     char id[6];      
-    double customer_rating;
-    int houses_sold;
+    double max_customer_rating;
 };
+
+struct State {
+    char stateID[3];
+    double max_customer_rating;
+};
+
+// compares via absolute value (fabs)
+double sign_adjusted_max(double current, double candidate) {
+    if (fabs(candidate) > fabs(current)) {
+        return candidate;
+    }
+    return current;
+}
 
 void split_line(char *line, char *fields[]) {
     int cur_field = 0;
@@ -37,7 +50,7 @@ void removeCharacter(char* str, char charToRemove) {
     *dst = '\0'; // Null-terminate the new string
 }
 
-void process_line(char *line, struct Agent agents[], int *num_agents) {
+void process_line(char *line, struct Agent agents[], int *num_agents, struct State states[], int *num_states) {
     char *fields[3]; 
     split_line(line, fields);
 
@@ -48,6 +61,7 @@ void process_line(char *line, struct Agent agents[], int *num_agents) {
     
     double rating_formatted = strtod(custRate, NULL);
 
+    // create/modify unique agent
     int itr;
     for (itr = 0; itr < *num_agents; itr++) {
         if (strcmp(agents[itr].id, agentID) == 0) break;
@@ -55,38 +69,28 @@ void process_line(char *line, struct Agent agents[], int *num_agents) {
 
     if (itr < *num_agents) {
         // existing agent
-        agents[itr].customer_rating += rating_formatted; 
-        agents[itr].houses_sold++;
-    } else {
-        // new agent
+        agents[itr].max_customer_rating = sign_adjusted_max(agents[itr].max_customer_rating, rating_formatted);
+    } else { // new agent creation
         strcpy(agents[*num_agents].id, agentID);
-        agents[*num_agents].customer_rating = rating_formatted;
-        agents[*num_agents].houses_sold = 1;
+        agents[*num_agents].max_customer_rating = rating_formatted;
         (*num_agents)++;
     }
 
-    //double average_gain_loss = gain_formatted;
-    double average_rating = agents[itr].customer_rating / agents[itr].houses_sold;
-    
-    // stdout/err handling
-    char out[256];
-    int len;
-    
-    // write to stdout 
-    len = snprintf(out, sizeof(out),
-        "%s, %.1f\n",
-        agentID, average_rating
-    );
-    write(1, out, len);
+    // create/modify unique state
+    int itr2;
+    for (itr2 = 0; itr2 < *num_states; itr2++) {
+        if (strcmp(states[itr2].stateID, stateID) == 0) break;
+    }
 
-    // write to stderr
-    len = snprintf(out, sizeof(out),
-        "%s, %.1f\n",
-        stateID, average_rating
-    );
-    write(2, out, len);
+    if (itr2 < *num_states) {
+        // existing state
+        states[itr2].max_customer_rating = sign_adjusted_max(states[itr2].max_customer_rating, rating_formatted);
+    } else { // new state creation
+        strcpy(states[*num_states].stateID, stateID);
+        states[*num_states].max_customer_rating = rating_formatted;
+        (*num_states)++;
+    }
 }
-
 
 int main() {
     // File descriptor 0: stdin
@@ -100,17 +104,38 @@ int main() {
     struct Agent agents[10]; // shouldn't be too many agents
     int num_agents = 0;
 
+    // State array information
+    struct State states[10]; // shouldn't be too many agents
+    int num_states = 0;
+
     // Split stdin by line
     while ((bytes_read = read(0, inbuf, BUFFER_SIZE)) > 0) {
         for (ssize_t i = 0; i < bytes_read; i++) {
             if (inbuf[i] == '\n') {
                 line[line_pos] = '\0';
-                process_line(line, agents, &num_agents);
+                process_line(line, agents, &num_agents, states, &num_states);
                 line_pos = 0;
             } else {
                 line[line_pos++] = inbuf[i];
             }
         }
+    }
+
+    // stdout
+    setlocale(LC_NUMERIC, "");
+
+    for (int i = 0; i < num_agents; i++) {
+        printf("%s, %.1f\n",
+            agents[i].id,
+            agents[i].max_customer_rating
+            );
+    }
+
+    // stderr
+    for (int i = 0; i < num_states; i++) {
+        fprintf(stderr, "%s, %.1f\n",
+                states[i].stateID,
+                states[i].max_customer_rating);
     }
     
     return 0;
