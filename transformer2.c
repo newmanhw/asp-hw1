@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <locale.h>
 #include <string.h>
 #include <math.h>
 
@@ -28,6 +27,82 @@ double sign_adjusted_max(double current, double candidate) {
         return candidate;
     }
     return current;
+}
+
+/* Helper that puts an integer into a growing buffer */
+static void append_int(char **buf, size_t *len, int value, const char *format)
+{
+    /* Estimate the max chars needed for this chunk */
+    size_t needed = strlen(format) + 20;          /* plenty of room */
+    *buf = realloc(*buf, *len + needed);
+    int written = snprintf(*buf + *len, needed, format, value);
+    *len += written;
+}
+
+/* Return a new string containing n formatted with commas.  Caller must free() */
+char *printfcomma_str(int n)
+{
+    char *out = NULL;
+    size_t outlen = 0;
+    int n2   = 0;
+    int scale = 1;
+
+    if (n < 0) {
+        append_int(&out, &outlen, '-', "%c");
+        n = -n;
+    }
+
+    /* Separate the number into 3‑digit groups */
+    while (n >= 1000) {
+        n2   += scale * (n % 1000);
+        n /= 1000;
+        scale *= 1000;
+    }
+
+    append_int(&out, &outlen, n, "%d");         
+
+    while (scale != 1) {
+        scale /= 1000;
+        int group = n2 / scale;
+        n2       %= scale;
+        append_int(&out, &outlen, group, ",%03d");
+    }
+
+    return out; /* remember to free() the caller */
+}
+
+char *format_gain(double value)
+{
+    int is_negative = value < 0;
+    int is_zero = (value == 0.0);
+
+    value = fabs(value);
+
+    long long int_part = (long long)value;
+    double frac = value - int_part;
+
+    char *int_str = printfcomma_str((int)int_part);
+
+    char frac_str[8];
+    snprintf(frac_str, sizeof(frac_str), "%.2f", frac);
+    // e.g. "0.25" → ".25"
+
+    size_t len = strlen(int_str) + strlen(frac_str) + 3;
+    char *out = malloc(len);
+
+    if (is_zero) {
+        snprintf(out, len, "%s%s",
+                 int_str,
+                 frac_str + 1);
+    } else {
+        snprintf(out, len, "%s%s%s",
+                 is_negative ? "-" : "+",
+                 int_str,
+                 frac_str + 1);
+    }
+
+    free(int_str);
+    return out;
 }
 
 void split_line(char *line, char *fields[]) {
@@ -104,13 +179,6 @@ void process_line(char *line, struct Agent agents[], int *num_agents, struct Sta
     }
 }
 
-// // for sorting outputs:
-// int compare_agents_last_seen(const void *a, const void *b) {
-//     const struct Agent *aa = a;
-//     const struct Agent *bb = b;
-//     return aa->last_seen - bb->last_seen;
-// }
-
 int main() {
     // File descriptor 0: stdin
     // stdin automatically opened when process starts
@@ -146,36 +214,27 @@ int main() {
     //qsort(states, num_states, sizeof(struct State), compare_agents_last_seen);
 
     // stdout
-    setlocale(LC_NUMERIC, "");
+    // setlocale(LC_NUMERIC, ""); -- can't use because it's non-standard in C17
 
     for (int i = 0; i < num_agents; i++) {
-        char gain_str[32];
-
-        if (agents[i].max_adjusted_gain > 0)
-            snprintf(gain_str, sizeof(gain_str), "+%'.2f", agents[i].max_adjusted_gain);
-        else
-            snprintf(gain_str, sizeof(gain_str), "%'.2f", agents[i].max_adjusted_gain);
+        char *gain_str = format_gain(agents[i].max_adjusted_gain);
 
         printf("%s, %s, %s\n",
             agents[i].name,
             agents[i].id,
             gain_str);
+        
+        free(gain_str);
     }
 
     // stderr
     for (int i = 0; i < num_states; i++) {
-        char gain_str[32];
+        char *gain_str = format_gain(states[i].max_adjusted_gain);
 
-        if (states[i].max_adjusted_gain > 0)
-            snprintf(gain_str, sizeof(gain_str), "+%'.2f", states[i].max_adjusted_gain);
-        else
-            snprintf(gain_str, sizeof(gain_str), "%'.2f", states[i].max_adjusted_gain);
+        fprintf(stderr, "%s, %s\n",states[i].stateID,gain_str);
 
-        fprintf(stderr, "%s, %s\n",
-                states[i].stateID,
-                gain_str);
+        free(gain_str);
     }
 
     return 0;
 }
-
